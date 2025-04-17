@@ -2,84 +2,72 @@ import streamlit as st
 from PIL import Image
 import numpy as np
 import cv2
-import io
-import datetime
 from collections import Counter
+import datetime
 
-st.set_page_config(page_title="Analisador de Padrões - Blaze IA", layout="centered")
-st.title("Analisador de Padrões - Blaze (Double) com IA")
-st.markdown("Envie o print do histórico de cores (Double) da Blaze abaixo:")
+st.set_page_config(page_title="Analisador Blaze Double", layout="centered")
 
-uploaded_file = st.file_uploader("Envie o print (.png, .jpg ou .jpeg)", type=["png", "jpg", "jpeg"])
+st.title("Analisador de Padrões - Blaze Double")
+st.markdown("Faça upload de um print do histórico da Blaze para previsão das próximas jogadas.")
 
-# Tolerâncias aproximadas de cor (BGR)
-COLOR_RANGES = {
-    "vermelho": ([0, 0, 130], [80, 80, 255]),
-    "preto": ([0, 0, 0], [60, 60, 60]),
-    "branco": ([200, 200, 200], [255, 255, 255])
-}
+uploaded_file = st.file_uploader("Envie o print do histórico da Blaze", type=["png", "jpg", "jpeg"])
 
-def detect_color(bgr_pixel):
-    for color, (lower, upper) in COLOR_RANGES.items():
-        if all(lower[i] <= bgr_pixel[i] <= upper[i] for i in range(3)):
-            return color
-    return "indefinido"
+# Função para identificar a cor dominante de cada bolinha
+def identificar_cores(img):
+    img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+    altura, largura, _ = img_cv.shape
 
-def process_image(image):
-    img = np.array(image)
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    bolinhas = []
+    step_x = largura // 20  # aprox. 20 bolinhas por linha
 
-    h, w, _ = img.shape
-    step_x = w // 13
-    step_y = h // 15
-    detected = []
+    for i in range(20):
+        x = i * step_x + step_x // 2
+        y = altura // 2
 
-    for y in range(3, h, step_y):
-        for x in range(3, w, step_x):
-            bgr = img[y, x]
-            cor = detect_color(bgr)
-            detected.append(cor)
+        if x >= largura:
+            break
 
-    return detected
+        cor_bgr = img_cv[y, x]
+        cor_rgb = tuple(int(c) for c in cor_bgr[::-1])
 
-def analisar_padroes(sequencia):
-    if not sequencia:
-        return [], {}
+        if cor_rgb[0] > 200 and cor_rgb[1] < 80 and cor_rgb[2] < 80:
+            bolinhas.append("vermelho")
+        elif cor_rgb[0] < 100 and cor_rgb[1] < 100 and cor_rgb[2] < 100:
+            bolinhas.append("preto")
+        elif cor_rgb[0] > 200 and cor_rgb[1] > 200 and cor_rgb[2] > 200:
+            bolinhas.append("branco")
+        else:
+            bolinhas.append("indefinido")
 
-    contagem = Counter(sequencia[-100:])  # últimas 100 jogadas
+    return bolinhas
+
+# Lógica para prever próximas jogadas
+def prever_jogadas(sequencia, minutos=10):
+    entradas = minutos * 2
+    contagem = Counter(sequencia)
     total = sum(contagem.values())
-    prob = {cor: f"{(contagem[cor] / total) * 100:.1f}%" for cor in contagem}
+    probabilidades = {cor: round((qtd / total) * 100, 2) for cor, qtd in contagem.items()}
 
-    # Previsão simples baseada nos últimos 10
-    ultimos = sequencia[-10:]
-    sugestao = Counter(ultimos).most_common(1)[0][0]
+    cor_mais_frequente = max(probabilidades, key=probabilidades.get)
+    previsao = [cor_mais_frequente] * entradas
 
-    return sugestao, prob
+    return previsao, probabilidades
 
-if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="Histórico recebido", use_column_width=True)
+if uploaded_file:
+    imagem = Image.open(uploaded_file)
+    st.image(imagem, caption="Imagem enviada", use_column_width=True)
 
-    st.write("Processando imagem...")
-    resultado = process_image(image)
+    st.write("Analisando a imagem...")
 
-    # Limpa "indefinidos" do final
-    resultado = [r for r in resultado if r in ["vermelho", "preto", "branco"]]
+    cores_identificadas = identificar_cores(imagem)
+    st.write("Sequência detectada:")
+    st.write(cores_identificadas)
 
-    if resultado:
-        st.success(f"{len(resultado)} jogadas detectadas.")
-        st.write("Sequência (mais antiga → mais recente):")
-        st.code(", ".join(resultado), language="text")
+    op_min = st.slider("Quantos minutos você quer prever?", 5, 20, 10)
+    previsao, probabilidades = prever_jogadas([c for c in cores_identificadas if c != "indefinido"], op_min)
 
-        sugestao, probabilidades = analisar_padroes(resultado)
-        st.markdown("### **Próxima sugestão de entrada:**")
-        st.markdown(f"**Cor provável:** `{sugestao.upper()}`")
+    st.subheader("Previsão para os próximos minutos:")
+    st.write(previsao)
 
-        st.markdown("### **Probabilidades nas últimas 100 jogadas:**")
-        for cor, pct in probabilidades.items():
-            st.write(f"{cor.capitalize()}: {pct}")
-
-        agora = datetime.datetime.now().strftime("%H:%M:%S")
-        st.caption(f"Última análise: {agora}")
-    else:
-        st.warning("Não foi possível detectar jogadas válidas na imagem.")
+    st.subheader("Probabilidades atuais com base no histórico:")
+    st.write(probabilidades)
