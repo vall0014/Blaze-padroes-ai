@@ -1,55 +1,112 @@
 import streamlit as st
-import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 
 st.set_page_config(page_title="Blaze Padrões com IA", layout="centered")
 
 st.title("Padrões Blaze com IA")
-st.markdown("**Uma análise inteligente de núcleos e padrões com base no histórico do Double.**")
+st.markdown("**Uma análise inteligente de padrões com base no histórico recente do Double.**")
 
-# Botão de análise
-if st.button("Analisar", type="primary"):
+st.markdown("### Informe os últimos resultados (da direita pra esquerda, exemplo: preto, vermelho, vermelho, branco)")
+
+input_text = st.text_input("Digite as cores separadas por vírgula").lower()
+
+if st.button("Analisar"):
     try:
-        # Pega o histórico do Double (últimas 100 jogadas)
-        response = requests.get("https://blaze.com/api/roulette_games/recent")
-        data = response.json()
-
-        # Filtra apenas jogos do modo 'double'
-        double_games = [j for j in data if j.get("game_type") == "double"]
-        cores = []
-        horarios = []
-
-        for jogo in double_games:
-            cor = jogo.get("color")  # 0=vermelho, 1=preto, 2=branco
-            horario = datetime.fromisoformat(jogo.get("created_at").replace("Z", "+00:00")) - timedelta(hours=3)
-            horarios.append(horario.strftime("%H:%M"))
-            if cor == 0:
-                cores.append("vermelho")
-            elif cor == 1:
-                cores.append("preto")
-            else:
-                cores.append("branco")
-
-        # Exibe o histórico recente com horário
-        st.subheader("Histórico recente com horário:")
-        for i in range(len(cores)):
-            st.markdown(f"**{horarios[i]}** → {cores[i]}")
-
-        # Estratégia básica baseada em repetição simples
-        ultima_cor = cores[0]
-        contagem = cores.count(ultima_cor)
-
-        st.markdown("---")
-        st.subheader("Sugestão de entrada:")
-
-        if ultima_cor == "vermelho":
-            sugestao = "Preto"
-        elif ultima_cor == "preto":
-            sugestao = "Vermelho"
+        cores = [cor.strip() for cor in input_text.split(",") if cor.strip() in ["vermelho", "preto", "branco"]]
+        if not cores:
+            st.warning("Insira ao menos uma cor válida (vermelho, preto ou branco).")
         else:
-            sugestao = "Aguardar próximo resultado (saiu branco)"
+            st.markdown("#### Histórico recebido:")
+            st.write(cores)
 
-        st.success(f"Com base no último resultado, a próxima cor sugerida é: **{sugestao}**")
+            ultima_cor = cores[0]
+            contagem = cores.count(ultima_cor)
+
+            st.markdown("---")
+            st.subheader("Sugestão de entrada:")
+
+            if ultima_cor == "vermelho":
+                sugestao = "Preto"
+            elif ultima_cor == "preto":
+                sugestao = "Vermelho"
+            else:
+                sugestao = "Aguardar próximo resultado (saiu branco)"
+
+            st.success(f"Com base no último resultado, a próxima cor sugerida é: **{sugestao}**")
     except Exception as e:
-        st.error("Erro ao acessar o histórico da Blaze. Tente novamente em instantes.")
+        st.error("Erro na análise. Verifique os dados inseridos.")
+        st.code(str(e))import streamlit as st
+from datetime import datetime
+
+st.set_page_config(page_title="Blaze Padrões com IA", layout="centered")
+
+st.title("Padrões Blaze com IA")
+st.markdown("**Uma análise inteligente de padrões com base no histórico recente do Double.**")
+
+st.markdown("### Informe os últimos resultados (da direita pra esquerda, exemplo: preto, vermelho, vermelho, branco)")
+
+input_text = st.text_input("Digite as cores separadas por vírgula").lower()
+
+if st.button("Analisar"):
+    try:
+        cores = [cor.strip() for cor in input_text.split(",") if cor.strip() in ["vermelho", "preto", "branco"]]
+        if not cores:
+            st.warning("Insira ao menos uma cor válida (vermelho, preto ou branco).")
+        else:
+            st.markdown("#### Histórico recebido:")
+            st.write(cores)
+
+            ultima_cor = cores[0]
+            contagem = cores.count(ultima_cor)
+
+            st.markdown("---")
+            st.subheader("Sugestão de entrada:")
+
+            if ultima_cor == "vermelho":
+                sugestao = "Preto"
+            elif ultima_cor == "preto":
+                sugestao = "Vermelho"
+            else:
+                sugestao = "Aguardar próximo resultado (saiu branco)"
+
+            st.success(f"Com base no último resultado, a próxima cor sugerida é: **{sugestao}**")
+    except Exception as e:
+        st.error("Erro na análise. Verifique os dados inseridos.")
+        st.code(str(e))import streamlit as st
+from datetime import datetime
+
+st.set_page_config(page_title="Blaze Padrões com IA", layout="centered")
+
+st.title("Padrões Blaze com IA")
+st.markdown("**Uma análise inteligente de padrões com base no histórico recente do Double.**")
+
+st.markdown("### Informe os últimos resultados (da direita pra esquerda, exemplo: preto, vermelho, vermelho, branco)")
+
+input_text = st.text_input("Digite as cores separadas por vírgula").lower()
+
+if st.button("Analisar"):
+    try:
+        cores = [cor.strip() for cor in input_text.split(",") if cor.strip() in ["vermelho", "preto", "branco"]]
+        if not cores:
+            st.warning("Insira ao menos uma cor válida (vermelho, preto ou branco).")
+        else:
+            st.markdown("#### Histórico recebido:")
+            st.write(cores)
+
+            ultima_cor = cores[0]
+            contagem = cores.count(ultima_cor)
+
+            st.markdown("---")
+            st.subheader("Sugestão de entrada:")
+
+            if ultima_cor == "vermelho":
+                sugestao = "Preto"
+            elif ultima_cor == "preto":
+                sugestao = "Vermelho"
+            else:
+                sugestao = "Aguardar próximo resultado (saiu branco)"
+
+            st.success(f"Com base no último resultado, a próxima cor sugerida é: **{sugestao}**")
+    except Exception as e:
+        st.error("Erro na análise. Verifique os dados inseridos.")
         st.code(str(e))
