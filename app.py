@@ -1,73 +1,62 @@
 import streamlit as st
-from PIL import Image
-import numpy as np
-import cv2
 from collections import Counter
-import datetime
 
-st.set_page_config(page_title="Analisador Blaze Double", layout="centered")
+st.set_page_config(page_title="Analisador Manual - Blaze IA", layout="centered")
+st.title("Analisador Manual de Padrões - Blaze (Double)")
 
-st.title("Analisador de Padrões - Blaze Double")
-st.markdown("Faça upload de um print do histórico da Blaze para previsão das próximas jogadas.")
+st.markdown("Cole abaixo a sequência das últimas cores (ex: vermelho, preto, branco...)")
 
-uploaded_file = st.file_uploader("Envie o print do histórico da Blaze", type=["png", "jpg", "jpeg"])
+entrada = st.text_area("Cole aqui a sequência (separe por vírgula)", height=200)
 
-# Função para identificar a cor dominante de cada bolinha
-def identificar_cores(img):
-    img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-    altura, largura, _ = img_cv.shape
-
-    bolinhas = []
-    step_x = largura // 20  # aprox. 20 bolinhas por linha
-
-    for i in range(20):
-        x = i * step_x + step_x // 2
-        y = altura // 2
-
-        if x >= largura:
-            break
-
-        cor_bgr = img_cv[y, x]
-        cor_rgb = tuple(int(c) for c in cor_bgr[::-1])
-
-        if cor_rgb[0] > 200 and cor_rgb[1] < 80 and cor_rgb[2] < 80:
-            bolinhas.append("vermelho")
-        elif cor_rgb[0] < 100 and cor_rgb[1] < 100 and cor_rgb[2] < 100:
-            bolinhas.append("preto")
-        elif cor_rgb[0] > 200 and cor_rgb[1] > 200 and cor_rgb[2] > 200:
-            bolinhas.append("branco")
-        else:
-            bolinhas.append("indefinido")
-
-    return bolinhas
-
-# Lógica para prever próximas jogadas
-def prever_jogadas(sequencia, minutos=10):
-    entradas = minutos * 2
-    contagem = Counter(sequencia)
+def analisar(sequencia):
+    contagem = Counter(sequencia[-100:])  # últimas 100
     total = sum(contagem.values())
-    probabilidades = {cor: round((qtd / total) * 100, 2) for cor, qtd in contagem.items()}
+    probabilidades = {cor: f"{(contagem[cor]/total)*100:.1f}%" for cor in contagem}
 
-    cor_mais_frequente = max(probabilidades, key=probabilidades.get)
-    previsao = [cor_mais_frequente] * entradas
+    ultimos_10 = sequencia[-10:]
+    sugestao = Counter(ultimos_10).most_common(1)[0][0]
 
-    return previsao, probabilidades
+    # Análise de momento
+    tendencia = ""
+    if ultimos_10.count(sugestao) >= 5:
+        tendencia = "Tendência forte detectada!"
+    elif len(set(ultimos_10)) == 1:
+        tendencia = "Cuidado: padrão fixo!"
+    elif ultimos_10[-1] != sugestao:
+        tendencia = "Possível reversão"
+    else:
+        tendencia = "Momento estável"
 
-if uploaded_file:
-    imagem = Image.open(uploaded_file)
-    st.image(imagem, caption="Imagem enviada", use_column_width=True)
+    # Previsões simples para próximas 3 jogadas
+    previsoes = []
+    for i in range(1, 4):
+        base = sequencia[-(10+i):-i]
+        if base:
+            cor = Counter(base).most_common(1)[0][0]
+            previsoes.append(cor)
+        else:
+            previsoes.append("indefinido")
 
-    st.write("Analisando a imagem...")
+    return sugestao, probabilidades, tendencia, previsoes
 
-    cores_identificadas = identificar_cores(imagem)
-    st.write("Sequência detectada:")
-    st.write(cores_identificadas)
+if entrada:
+    lista = [i.strip().lower() for i in entrada.split(",") if i.strip().lower() in ["vermelho", "preto", "branco"]]
 
-    op_min = st.slider("Quantos minutos você quer prever?", 5, 20, 10)
-    previsao, probabilidades = prever_jogadas([c for c in cores_identificadas if c != "indefinido"], op_min)
+    if len(lista) < 10:
+        st.warning("Digite ao menos 10 resultados para a IA analisar.")
+    else:
+        sugestao, probs, tendencia, futuras = analisar(lista)
 
-    st.subheader("Previsão para os próximos minutos:")
-    st.write(previsao)
+        st.markdown("### Próxima sugestão de entrada:")
+        st.success(f"**Cor sugerida:** `{sugestao.upper()}`")
 
-    st.subheader("Probabilidades atuais com base no histórico:")
-    st.write(probabilidades)
+        st.markdown("### Probabilidades das últimas 100 jogadas:")
+        for cor, pct in probs.items():
+            st.write(f"{cor.capitalize()}: {pct}")
+
+        st.markdown("### Análise do Momento:")
+        st.info(tendencia)
+
+        st.markdown("### Previsão para próximas 3 entradas:")
+        for i, cor in enumerate(futuras, 1):
+            st.write(f"Entrada {i}: `{cor.upper()}`")
