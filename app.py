@@ -1,62 +1,73 @@
 import streamlit as st
+from PIL import Image
+import numpy as np
+import cv2
+from collections import Counter
+import datetime
 
-# Função para analisar padrões e sugerir próxima cor
-def analisar_e_prever(sequencia):
-    padroes = []
-    proxima_cor = "Sem sugestão"
+st.set_page_config(page_title="Analisador Blaze Double", layout="centered")
 
-    for i in range(len(sequencia) - 2):
-        trio = sequencia[i:i+3]
-        if trio == ["vermelho", "vermelho", "preto"]:
-            padroes.append(f"Detectado padrão: V-V-P na posição {i+1}")
-        elif trio == ["preto", "preto", "vermelho"]:
-            padroes.append(f"Detectado padrão: P-P-V na posição {i+1}")
-        elif trio == ["vermelho", "vermelho", "vermelho"]:
-            padroes.append(f"Detectado padrão: V-V-V na posição {i+1}")
-        elif trio == ["preto", "preto", "preto"]:
-            padroes.append(f"Detectado padrão: P-P-P na posição {i+1}")
-        elif "branco" in trio:
-            padroes.append(f"Aviso: Branco detectado na posição {i+1}")
+st.title("Analisador de Padrões - Blaze Double")
+st.markdown("Faça upload de um print do histórico da Blaze para previsão das próximas jogadas.")
 
-    ultimos = sequencia[-3:]
-    
-    # Lógica para sugerir a próxima cor com base nos últimos 3
-    if ultimos == ["vermelho", "vermelho", "preto"]:
-        proxima_cor = "Sugestão: Jogar VERMELHO"
-    elif ultimos == ["preto", "preto", "vermelho"]:
-        proxima_cor = "Sugestão: Jogar PRETO"
-    elif ultimos == ["vermelho", "vermelho", "vermelho"]:
-        proxima_cor = "Sugestão: Jogar PRETO"
-    elif ultimos == ["preto", "preto", "preto"]:
-        proxima_cor = "Sugestão: Jogar VERMELHO"
-    elif "branco" in ultimos:
-        proxima_cor = "Sugestão: Jogar PRETO (após branco)"
+uploaded_file = st.file_uploader("Envie o print do histórico da Blaze", type=["png", "jpg", "jpeg"])
 
-    return padroes, proxima_cor
+# Função para identificar a cor dominante de cada bolinha
+def identificar_cores(img):
+    img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+    altura, largura, _ = img_cv.shape
 
-# Interface do app
-st.set_page_config(page_title="Blaze Padrões com IA", layout="centered")
-st.title("Blaze Padrões com IA - Versão Manual com Sugestão")
+    bolinhas = []
+    step_x = largura // 20  # aprox. 20 bolinhas por linha
 
-st.write("Digite a sequência recente de cores do jogo Blaze Double.")
-st.write("Exemplo: vermelho, preto, vermelho, branco, preto")
+    for i in range(20):
+        x = i * step_x + step_x // 2
+        y = altura // 2
 
-entrada = st.text_input("Sequência de cores (separadas por vírgula):")
+        if x >= largura:
+            break
 
-if st.button("Analisar"):
-    if entrada:
-        cores = [cor.strip().lower() for cor in entrada.split(",")]
-        padroes, sugestao = analisar_e_prever(cores)
+        cor_bgr = img_cv[y, x]
+        cor_rgb = tuple(int(c) for c in cor_bgr[::-1])
 
-        if padroes:
-            st.subheader("Padrões encontrados:")
-            for p in padroes:
-                st.write(f"- {p}")
+        if cor_rgb[0] > 200 and cor_rgb[1] < 80 and cor_rgb[2] < 80:
+            bolinhas.append("vermelho")
+        elif cor_rgb[0] < 100 and cor_rgb[1] < 100 and cor_rgb[2] < 100:
+            bolinhas.append("preto")
+        elif cor_rgb[0] > 200 and cor_rgb[1] > 200 and cor_rgb[2] > 200:
+            bolinhas.append("branco")
         else:
-            st.info("Nenhum padrão detectado.")
+            bolinhas.append("indefinido")
 
-        st.subheader("Sugestão da próxima cor:")
-        st.success(sugestao)
+    return bolinhas
 
-    else:
-        st.warning("Por favor, insira uma sequência de cores.")
+# Lógica para prever próximas jogadas
+def prever_jogadas(sequencia, minutos=10):
+    entradas = minutos * 2
+    contagem = Counter(sequencia)
+    total = sum(contagem.values())
+    probabilidades = {cor: round((qtd / total) * 100, 2) for cor, qtd in contagem.items()}
+
+    cor_mais_frequente = max(probabilidades, key=probabilidades.get)
+    previsao = [cor_mais_frequente] * entradas
+
+    return previsao, probabilidades
+
+if uploaded_file:
+    imagem = Image.open(uploaded_file)
+    st.image(imagem, caption="Imagem enviada", use_column_width=True)
+
+    st.write("Analisando a imagem...")
+
+    cores_identificadas = identificar_cores(imagem)
+    st.write("Sequência detectada:")
+    st.write(cores_identificadas)
+
+    op_min = st.slider("Quantos minutos você quer prever?", 5, 20, 10)
+    previsao, probabilidades = prever_jogadas([c for c in cores_identificadas if c != "indefinido"], op_min)
+
+    st.subheader("Previsão para os próximos minutos:")
+    st.write(previsao)
+
+    st.subheader("Probabilidades atuais com base no histórico:")
+    st.write(probabilidades)
