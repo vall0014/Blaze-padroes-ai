@@ -2,95 +2,93 @@ import streamlit as st
 from PIL import Image
 import numpy as np
 import cv2
-from collections import Counter
+import datetime
 
-st.set_page_config(page_title="Analisador Blaze por Imagem", layout="centered")
-st.title("Blaze Double - Análise de Padrões (por imagem)")
+st.set_page_config(page_title="Analisador Blaze - Double", layout="centered")
 
-uploaded_file = st.file_uploader("Envie o print do histórico da Blaze (Double)", type=["png", "jpg", "jpeg"])
+st.title("Analisador de Padrões - Blaze Double com Imagem")
 
-def detectar_cor(media_rgb):
-    r, g, b = media_rgb
-    if abs(r - g) < 30 and abs(g - b) < 30 and r > 200:
-        return 'branco'
-    elif r > 150 and g < 80 and b < 80:
-        return 'vermelho'
-    elif r < 80 and g < 80 and b < 80:
-        return 'preto'
+st.markdown(
+    """
+    Faça upload do print com o histórico de jogadas da Blaze (Double). O sistema vai analisar automaticamente as cores e prever as próximas entradas com maior probabilidade.
+    """
+)
+
+# --- Função para detectar cor dominante de uma bolinha ---
+def detectar_cor(bolinha):
+    hsv = cv2.cvtColor(bolinha, cv2.COLOR_BGR2HSV)
+    avg_color = np.average(hsv.reshape(-1, 3), axis=0)
+    h, s, v = avg_color
+
+    if s < 50 and v > 200:
+        return "branco"
+    elif h < 10 or h > 160:
+        return "vermelho"
+    elif 10 < h < 50:
+        return "preto"
     else:
-        return 'indefinido'
+        return "indefinido"
 
-def analisar_padroes(sequencia):
-    contagem = Counter(sequencia[-100:])
+# --- Função principal para processar imagem e extrair sequência ---
+def processar_imagem(imagem):
+    img = np.array(imagem)
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+    altura, largura, _ = img.shape
+    bolinhas = []
+    num_linhas = 7
+    num_colunas = 10
+    margem_sup = 90
+    margem_esq = 90
+    passo_x = (largura - 2 * margem_esq) // num_colunas
+    passo_y = (altura - 2 * margem_sup) // num_linhas
+    raio = 20
+
+    for linha in range(num_linhas):
+        for coluna in range(num_colunas):
+            x = margem_esq + coluna * passo_x
+            y = margem_sup + linha * passo_y
+            bolinha = img[y - raio:y + raio, x - raio:x + raio]
+            if bolinha.shape[0] == 0 or bolinha.shape[1] == 0:
+                continue
+            cor = detectar_cor(bolinha)
+            bolinhas.append(cor)
+
+    return bolinhas
+
+# --- Função de previsão com base na sequência ---
+def prever_proximas_cores(sequencia, minutos=10):
+    ultimos = sequencia[-20:]
+    contagem = {"vermelho": 0, "preto": 0, "branco": 0}
+    for cor in ultimos:
+        if cor in contagem:
+            contagem[cor] += 1
+
     total = sum(contagem.values())
-    probabilidades = {cor: f"{(contagem[cor]/total)*100:.1f}%" for cor in contagem}
+    if total == 0:
+        return "Não foi possível prever"
 
-    ultimos_10 = sequencia[-10:]
-    sugestao = Counter(ultimos_10).most_common(1)[0][0]
+    probabilidades = {cor: round((qtd / total) * 100, 2) for cor, qtd in contagem.items()}
+    sugestao = max(probabilidades, key=probabilidades.get)
 
-    tendencia = ""
-    if ultimos_10.count(sugestao) >= 5:
-        tendencia = "Tendência forte"
-    elif len(set(ultimos_10)) == 1:
-        tendencia = "Cuidado: padrão fixo"
-    else:
-        tendencia = "Momento estável"
+    return sugestao, probabilidades
 
-    previsoes = []
-    for i in range(1, 4):
-        base = sequencia[-(10+i):-i]
-        if base:
-            cor = Counter(base).most_common(1)[0][0]
-            previsoes.append(cor)
-        else:
-            previsoes.append("indefinido")
+# --- Upload da imagem ---
+arquivo = st.file_uploader("Envie o print do histórico da Blaze", type=["png", "jpg", "jpeg"])
 
-    return sugestao, probabilidades, tendencia, previsoes
+if arquivo:
+    imagem = Image.open(arquivo)
+    st.image(imagem, caption="Imagem recebida", use_column_width=True)
 
-if uploaded_file:
-    st.image(uploaded_file, caption="Imagem enviada", use_column_width=True)
-    image = Image.open(uploaded_file).convert("RGB")
-    img_array = np.array(image)
-    img_cv = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+    with st.spinner("Analisando imagem..."):
+        resultado = processar_imagem(imagem)
+        st.success("Imagem processada com sucesso!")
+        st.markdown("### Últimas cores detectadas:")
+        st.code(", ".join(resultado[-30:]))
 
-    height, width, _ = img_cv.shape
-    linhas = 6
-    colunas = 30
-    cor_detectada = []
+        sugestao, probabilidades = prever_proximas_cores(resultado)
 
-    largura_bolinha = width // colunas
-    altura_bolinha = height // linhas
-
-    for i in range(linhas):
-        for j in range(colunas):
-            x = j * largura_bolinha
-            y = i * altura_bolinha
-            bolinha = img_cv[y+10:y+altura_bolinha-10, x+10:x+largura_bolinha-10]
-            media_bgr = cv2.mean(bolinha)[:3]
-            media_rgb = media_bgr[::-1]
-            cor = detectar_cor(media_rgb)
-            cor_detectada.append(cor)
-
-    cor_detectada = [c for c in cor_detectada if c in ['vermelho', 'preto', 'branco']]
-
-    if len(cor_detectada) < 10:
-        st.warning("Poucas cores detectadas. Verifique a imagem enviada.")
-    else:
-        st.markdown("### Cores detectadas:")
-        st.write(', '.join(cor_detectada[-50:]))
-
-        sugestao, probs, tendencia, futuras = analisar_padroes(cor_detectada)
-
-        st.markdown("### Próxima sugestão:")
-        st.success(f"**Cor sugerida:** `{sugestao.upper()}`")
-
-        st.markdown("### Probabilidades nas últimas 100 jogadas:")
-        for cor, pct in probs.items():
-            st.write(f"{cor.capitalize()}: {pct}")
-
-        st.markdown("### Análise do Momento:")
-        st.info(tendencia)
-
-        st.markdown("### Previsão para próximas 3 entradas:")
-        for i, cor in enumerate(futuras, 1):
-            st.write(f"Entrada {i}: `{cor.upper()}`")
+        st.markdown("### Previsão para os próximos 10 minutos:")
+        st.write(f"**Sugestão mais provável:** `{sugestao.upper()}`")
+        st.write("**Probabilidades:**")
+        st.json(probabilidades)
