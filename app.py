@@ -1,112 +1,41 @@
 import streamlit as st
-from datetime import datetime
 
+# Função para identificar padrões simples
+def analisar_padroes(sequencia):
+    padroes = []
+    for i in range(len(sequencia) - 2):
+        trio = sequencia[i:i+3]
+        if trio == ["vermelho", "vermelho", "preto"]:
+            padroes.append((i, "Padrão: Vermelho, Vermelho, Preto"))
+        elif trio == ["preto", "preto", "vermelho"]:
+            padroes.append((i, "Padrão: Preto, Preto, Vermelho"))
+        elif trio == ["vermelho", "vermelho", "vermelho"]:
+            padroes.append((i, "3 Vermelhos seguidos"))
+        elif trio == ["preto", "preto", "preto"]:
+            padroes.append((i, "3 Pretos seguidos"))
+        elif "branco" in trio:
+            padroes.append((i, "Atenção: Branco detectado"))
+    return padroes
+
+# Interface do app
 st.set_page_config(page_title="Blaze Padrões com IA", layout="centered")
+st.title("Blaze Padrões com IA - Versão Manual")
 
-st.title("Padrões Blaze com IA")
-st.markdown("**Uma análise inteligente de padrões com base no histórico recente do Double.**")
+st.write("Digite a sequência recente de cores do jogo Blaze Double.")
+st.write("Exemplo: vermelho, preto, vermelho, branco, preto")
 
-st.markdown("### Informe os últimos resultados (da direita pra esquerda, exemplo: preto, vermelho, vermelho, branco)")
-
-input_text = st.text_input("Digite as cores separadas por vírgula").lower()
+entrada = st.text_input("Sequência de cores (separadas por vírgula):")
 
 if st.button("Analisar"):
-    try:
-        cores = [cor.strip() for cor in input_text.split(",") if cor.strip() in ["vermelho", "preto", "branco"]]
-        if not cores:
-            st.warning("Insira ao menos uma cor válida (vermelho, preto ou branco).")
+    if entrada:
+        cores = [cor.strip().lower() for cor in entrada.split(",")]
+        padroes_encontrados = analisar_padroes(cores)
+
+        if padroes_encontrados:
+            st.subheader("Padrões encontrados:")
+            for indice, padrao in padroes_encontrados:
+                st.write(f"Posição {indice + 1}: {padrao}")
         else:
-            st.markdown("#### Histórico recebido:")
-            st.write(cores)
-
-            ultima_cor = cores[0]
-            contagem = cores.count(ultima_cor)
-
-            st.markdown("---")
-            st.subheader("Sugestão de entrada:")
-
-            if ultima_cor == "vermelho":
-                sugestao = "Preto"
-            elif ultima_cor == "preto":
-                sugestao = "Vermelho"
-            else:
-                sugestao = "Aguardar próximo resultado (saiu branco)"
-
-            st.success(f"Com base no último resultado, a próxima cor sugerida é: **{sugestao}**")
-    except Exception as e:
-        st.error("Erro na análise. Verifique os dados inseridos.")
-        st.code(str(e))import streamlit as st
-from datetime import datetime
-
-st.set_page_config(page_title="Blaze Padrões com IA", layout="centered")
-
-st.title("Padrões Blaze com IA")
-st.markdown("**Uma análise inteligente de padrões com base no histórico recente do Double.**")
-
-st.markdown("### Informe os últimos resultados (da direita pra esquerda, exemplo: preto, vermelho, vermelho, branco)")
-
-input_text = st.text_input("Digite as cores separadas por vírgula").lower()
-
-if st.button("Analisar"):
-    try:
-        cores = [cor.strip() for cor in input_text.split(",") if cor.strip() in ["vermelho", "preto", "branco"]]
-        if not cores:
-            st.warning("Insira ao menos uma cor válida (vermelho, preto ou branco).")
-        else:
-            st.markdown("#### Histórico recebido:")
-            st.write(cores)
-
-            ultima_cor = cores[0]
-            contagem = cores.count(ultima_cor)
-
-            st.markdown("---")
-            st.subheader("Sugestão de entrada:")
-
-            if ultima_cor == "vermelho":
-                sugestao = "Preto"
-            elif ultima_cor == "preto":
-                sugestao = "Vermelho"
-            else:
-                sugestao = "Aguardar próximo resultado (saiu branco)"
-
-            st.success(f"Com base no último resultado, a próxima cor sugerida é: **{sugestao}**")
-    except Exception as e:
-        st.error("Erro na análise. Verifique os dados inseridos.")
-        st.code(str(e))import streamlit as st
-from datetime import datetime
-
-st.set_page_config(page_title="Blaze Padrões com IA", layout="centered")
-
-st.title("Padrões Blaze com IA")
-st.markdown("**Uma análise inteligente de padrões com base no histórico recente do Double.**")
-
-st.markdown("### Informe os últimos resultados (da direita pra esquerda, exemplo: preto, vermelho, vermelho, branco)")
-
-input_text = st.text_input("Digite as cores separadas por vírgula").lower()
-
-if st.button("Analisar"):
-    try:
-        cores = [cor.strip() for cor in input_text.split(",") if cor.strip() in ["vermelho", "preto", "branco"]]
-        if not cores:
-            st.warning("Insira ao menos uma cor válida (vermelho, preto ou branco).")
-        else:
-            st.markdown("#### Histórico recebido:")
-            st.write(cores)
-
-            ultima_cor = cores[0]
-            contagem = cores.count(ultima_cor)
-
-            st.markdown("---")
-            st.subheader("Sugestão de entrada:")
-
-            if ultima_cor == "vermelho":
-                sugestao = "Preto"
-            elif ultima_cor == "preto":
-                sugestao = "Vermelho"
-            else:
-                sugestao = "Aguardar próximo resultado (saiu branco)"
-
-            st.success(f"Com base no último resultado, a próxima cor sugerida é: **{sugestao}**")
-    except Exception as e:
-        st.error("Erro na análise. Verifique os dados inseridos.")
-        st.code(str(e))
+            st.info("Nenhum padrão detectado.")
+    else:
+        st.warning("Por favor, insira uma sequência de cores.")
