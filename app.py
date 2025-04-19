@@ -51,42 +51,47 @@ def analisar_padrao(cores):
         "probabilidade_branco": prob_sair_branco
     }
 
-# Geração da próxima sequência de cores
-def gerar_estrategia():
+# Estratégia baseada na análise
+def gerar_estrategia(cores, analise):
     fuso_brasilia = pytz.timezone("America/Sao_Paulo")
     agora = datetime.now(fuso_brasilia)
-
-    cores = get_latest_colors()
-    if isinstance(cores, str):
-        return cores, None
-
-    analise = analisar_padrao(cores)
     entradas = []
 
     for i in range(20):
         horario = (agora + timedelta(minutes=i)).strftime("%H:%M")
+
         if analise["probabilidade_branco"] == "ALTA":
             cor = "branco"
-        elif len(cores) > 0 and cores[-1] == "preto":
+        elif len(cores) >= 2 and cores[-1] == "preto" and cores[-2] == "preto":
             cor = "vermelho"
-        else:
+        elif len(cores) >= 2 and cores[-1] == "vermelho" and cores[-2] == "vermelho":
             cor = "preto"
+        else:
+            cor = "preto"  # fallback padrão
+
         observacao = "Estratégia com base nos últimos padrões"
         entradas.append((horario, cor, observacao))
 
-    return analise, entradas
+    return entradas
 
 # Streamlit UI
 st.set_page_config(page_title="Blaze Padrões com IA", layout="wide")
 st.title("Análise Automática - Blaze Double")
 
-# Botão para atualizar as entradas
+# Botão de atualização
 if st.button("Atualizar Estratégias Agora"):
-    analise, entradas = gerar_estrategia()
+    st.session_state["atualizar"] = True
 
-    if isinstance(analise, str):
-        st.error(analise)
+# Se botão foi clicado, executa a lógica
+if st.session_state.get("atualizar", False):
+    cores = get_latest_colors()
+
+    if isinstance(cores, str):
+        st.error(cores)
     else:
+        analise = analisar_padrao(cores)
+        entradas = gerar_estrategia(cores, analise)
+
         st.subheader("Diagnóstico do Mercado Atual")
 
         # ALERTA de risco
