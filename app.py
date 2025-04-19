@@ -1,61 +1,47 @@
 import streamlit as st
 from datetime import datetime, timedelta
-import time
+import pytz
 import random
 
-st.set_page_config(page_title="Blaze Padrões com IA", layout="centered")
-
+st.set_page_config(page_title="Análise Blaze Double", layout="centered")
 st.title("Análise Automática - Blaze Double")
+st.subheader("Diagnóstico do Mercado Atual")
 
-# Estilização
-st.markdown(
-    """
-    <style>
-        .big-font {
-            font-size:24px !important;
-        }
-        .status-box {
-            background-color: #4a4a4a;
-            padding: 10px;
-            border-radius: 10px;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+# Função simulada de diagnóstico
+def diagnostico_do_mercado():
+    risco = random.choice(["ALTO", "MODERADO", "BAIXO"])
+    mercado_bom = risco == "BAIXO"
+    return risco, mercado_bom
 
-# Simula uma análise baseada em padrões (substituir com lógica real depois)
-def analisar():
-    st.subheader("Diagnóstico do Mercado Atual")
-
-    risco = random.choice(["BAIXO", "MÉDIO", "ALTO"])
-    mercado_bom = "✅ SIM" if risco in ["BAIXO", "MÉDIO"] else "❌ NÃO"
-    prob_branco = random.choice(["BAIXA", "MÉDIA", "ALTA", "DESCONHECIDA"])
+# Botão manual para atualizar
+if st.button("Atualizar Análise"):
+    risco, mercado_bom = diagnostico_do_mercado()
 
     if risco == "ALTO":
         st.warning("ATENÇÃO: Mercado com ALTO risco de LOS!")
+    elif risco == "MODERADO":
+        st.info("Mercado com risco MODERADO. Atenção redobrada.")
     else:
-        st.success("Mercado estável para operações.")
+        st.success("Mercado com BAIXO risco. Bom momento para operar!")
 
     st.markdown(f"""
-        - **Mercado Bom para Operar?** {mercado_bom}  
-        - **Risco de LOS:** `{risco}`  
-        - **Probabilidade de Branco:** `{prob_branco}`  
+    - Mercado Bom para Operar? {'✅ SIM' if mercado_bom else '❌ NÃO'}
+    - Risco de LOS: **{risco}**
+    - Probabilidade de Branco: `DESCONHECIDA`
     """)
 
     st.subheader("Entradas Estratégicas para os Próximos 20 Minutos")
 
-    hora_atual = datetime.utcnow() - timedelta(hours=3)  # Ajustado para horário de Brasília
+    # Horário de Brasília
+    fuso_brasilia = pytz.timezone("America/Sao_Paulo")
+    agora = datetime.now(fuso_brasilia)
+
+    cores_possiveis = ["PRETO", "VERMELHO"]
+
     for i in range(20):
-        horario = (hora_atual + timedelta(minutes=i)).strftime("%H:%M")
-        cor = random.choice(["PRETO", "VERMELHO"])
-        estrategia = f"{horario} → **{cor}** | Estratégia com base nos últimos padrões"
-        st.markdown(f"- {estrategia}")
-
-# Interface principal
-st.info("Clique no botão abaixo para atualizar a análise com base no histórico atual.")
-
-if st.button("Atualizar Análise"):
-    with st.spinner("Analisando padrões do mercado..."):
-        analisar()
-        time.sleep(1)
+        horario = agora + timedelta(minutes=i)
+        cor_sugerida = random.choice(cores_possiveis)
+        estrategia = "Estratégia com base nos últimos padrões"
+        st.markdown(f"**{horario.strftime('%H:%M')}** → **{cor_sugerida}** | {estrategia}")
+else:
+    st.info("Clique no botão acima para gerar a análise manualmente.")
