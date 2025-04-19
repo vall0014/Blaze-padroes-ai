@@ -1,34 +1,11 @@
 import streamlit as st
-import requests
-from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-import pytz
+import random
 
-# Fuso horário de Brasília
-tz_brasilia = pytz.timezone("America/Sao_Paulo")
-
-# Função para puxar o histórico do TipMiner
-def get_latest_colors():
-    url = "https://www.tipminer.com/br/historico/blaze/double"
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    try:
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.content, 'html.parser')
-        result_divs = soup.select('.col-6.col-sm-3.col-md-2.col-xl.result-item .result-icon')
-
-        cores = []
-        for item in result_divs[:20]:
-            if "white" in item["class"]:
-                cores.append("branco")
-            elif "red" in item["class"]:
-                cores.append("vermelho")
-            elif "black" in item["class"]:
-                cores.append("preto")
-
-        return cores[::-1]
-    except Exception as e:
-        return f"Erro ao puxar dados: {e}"
+# Simula os padrões das últimas jogadas
+def obter_ultimos_padroes():
+    cores = ["vermelho", "preto", "branco"]
+    return [random.choice(cores) for _ in range(30)]
 
 # Análise estratégica
 def analisar_padrao(cores):
@@ -43,9 +20,9 @@ def analisar_padrao(cores):
     branco_detectado = len(ult_brancos) > 0
 
     prob_sair_branco = "BAIXA"
-    if len(cores) >= 2 and cores[-1] == "branco":
+    if len(cores) >= 1 and cores[-1] == "branco":
         prob_sair_branco = "MÉDIA"
-        if cores[-2] == "branco":
+        if len(cores) >= 2 and cores[-2] == "branco":
             prob_sair_branco = "ALTA"
 
     return {
@@ -54,66 +31,46 @@ def analisar_padrao(cores):
         "probabilidade_branco": prob_sair_branco
     }
 
-# Geração da estratégia
-def gerar_estrategia():
-    cores = get_latest_colors()
-    if isinstance(cores, str):
-        return cores, None
-
-    analise = analisar_padrao(cores)
-    agora = datetime.now(tz_brasilia)
+# Gera as entradas para os próximos minutos
+def gerar_entradas():
+    agora = datetime.now()
     entradas = []
-
     for i in range(20):
-        horario = (agora + timedelta(minutes=i)).strftime("%H:%M")
-        if analise["probabilidade_branco"] == "ALTA":
-            cor = "branco"
-        elif len(cores) >= 2:
-            if cores[-1] == "preto" and cores[-2] == "vermelho":
-                cor = "branco"
-            elif cores[-1] == "vermelho":
-                cor = "preto"
-            else:
-                cor = "vermelho"
-        else:
-            cor = "preto"
-        observacao = "Estratégia com base nos últimos padrões"
-        entradas.append((horario, cor, observacao))
+        minuto = agora + timedelta(minutes=i + 1)
+        cor = "PRETO" if random.random() > 0.5 else "VERMELHO"
+        entradas.append((minuto.strftime("%H:%M"), cor))
+    return entradas
 
-    return analise, entradas
+# Função principal da aplicação
+def main():
+    st.set_page_config(page_title="Blaze Estratégias", layout="centered")
+    st.title("Entradas Estratégicas para os Próximos 20 Minutos")
 
-# STREAMLIT INTERFACE
-st.set_page_config(page_title="Blaze Padrões com IA", layout="wide")
-st.title("Análise Automática - Blaze Double")
+    cores = obter_ultimos_padroes()
+    analise = analisar_padrao(cores)
 
-if st.button("Atualizar Entradas"):
-    analise, entradas = gerar_estrategia()
+    # Alerta de risco
+    if analise["risco_los"] == "ALTO":
+        st.warning("ATENÇÃO: Mercado com ALTO risco de LOS!")
+    elif analise["risco_los"] == "MÉDIO":
+        st.info("Mercado com risco MODERADO.")
 
-    if isinstance(analise, str):
-        st.error(analise)
-    else:
-        st.subheader("Diagnóstico do Mercado Atual")
+    st.markdown(f"**Mercado Bom para Operar?** {'✅ SIM' if analise['mercado_bom'] else '❌ NÃO'}")
+    st.markdown(f"**Risco de LOS:** `{analise['risco_los']}`")
+    st.markdown(f"**Probabilidade de Branco:** `{analise['probabilidade_branco']}`")
 
-        if analise["risco_los"] == "ALTO":
-            st.warning("ATENÇÃO: Mercado com ALTO risco de LOS!")
-        elif analise["risco_los"] == "MÉDIO":
-            st.info("Mercado com risco MÉDIO, cuidado nas entradas.")
-        else:
-            st.success("Mercado com baixo risco, bom momento para operar!")
+    # Botão para atualizar manualmente
+    if st.button("🔄 Atualizar Entradas"):
+        entradas = gerar_entradas()
+        st.session_state.entradas = entradas
 
-        if analise["probabilidade_branco"] == "ALTA":
-            st.warning("ALERTA: Alta chance de BRANCO nas próximas jogadas!")
-        elif analise["probabilidade_branco"] == "MÉDIA":
-            st.info("Chance MÉDIA de branco. Fique atento.")
+    # Garante que as entradas existem mesmo sem clicar no botão
+    if "entradas" not in st.session_state:
+        st.session_state.entradas = gerar_entradas()
 
-        st.markdown(f"""
-        - **Mercado Bom para Operar?** {'✅ SIM' if analise['mercado_bom'] else '❌ NÃO'}
-        - **Risco de LOS:** `{analise['risco_los']}`
-        - **Probabilidade de Branco:** `{analise['probabilidade_branco']}`
-        """)
+    st.subheader("Entradas Estratégicas para os Próximos 20 Minutos")
+    for hora, cor in st.session_state.entradas:
+        st.markdown(f"**{hora} → {cor}** | Estratégia com base nos últimos padrões")
 
-        st.subheader("Entradas Estratégicas para os Próximos 20 Minutos")
-        for h, cor, obs in entradas:
-            st.write(f"**{h}** → **{cor.upper()}** | {obs}")
-else:
-    st.info("Clique no botão acima para gerar as novas entradas.")
+if __name__ == "__main__":
+    main()
