@@ -20,8 +20,8 @@ def analisar_padrao(cores):
     prob_sair_branco = "BAIXA"
     if len(cores) >= 1 and cores[-1] == "branco":
         prob_sair_branco = "MÉDIA"
-        if len(cores) >= 2 and cores[-2] == "branco":
-            prob_sair_branco = "ALTA"
+    if len(cores) >= 2 and cores[-1] == "branco" and cores[-2] == "branco":
+        prob_sair_branco = "ALTA"
 
     return {
         "mercado_bom": branco_detectado,
@@ -43,12 +43,6 @@ def main():
     st.title("Entradas Estratégicas para os Próximos 20 Minutos")
 
     cores = obter_ultimos_padroes()
-    
-    # Proteção extra para evitar erro de índice
-    if len(cores) < 2:
-        st.error("Erro: lista de cores não tem dados suficientes para análise.")
-        return
-
     analise = analisar_padrao(cores)
 
     # Alerta de risco
