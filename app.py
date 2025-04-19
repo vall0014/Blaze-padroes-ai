@@ -1,94 +1,92 @@
 import streamlit as st
-from PIL import Image
-import numpy as np
-import cv2
-import datetime
+import requests
+from bs4 import BeautifulSoup
+import time
+from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Analisador Blaze - Double", layout="centered")
+# Função para puxar o histórico do TipMiner
+def get_latest_colors():
+    url = "https://www.tipminer.com/br/historico/blaze/double"
+    headers = {"User-Agent": "Mozilla/5.0"}
 
-st.title("Analisador de Padrões - Blaze Double com Imagem")
+    try:
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        result_divs = soup.select('.col-6.col-sm-3.col-md-2.col-xl.result-item .result-icon')
 
-st.markdown(
-    """
-    Faça upload do print com o histórico de jogadas da Blaze (Double). O sistema vai analisar automaticamente as cores e prever as próximas entradas com maior probabilidade.
-    """
-)
+        cores = []
+        for item in result_divs[:20]:  # Pegamos só os últimos 20 resultados
+            if "white" in item["class"]:
+                cores.append("branco")
+            elif "red" in item["class"]:
+                cores.append("vermelho")
+            elif "black" in item["class"]:
+                cores.append("preto")
 
-# --- Função para detectar cor dominante de uma bolinha ---
-def detectar_cor(bolinha):
-    hsv = cv2.cvtColor(bolinha, cv2.COLOR_BGR2HSV)
-    avg_color = np.average(hsv.reshape(-1, 3), axis=0)
-    h, s, v = avg_color
+        return cores[::-1]  # Inverter: da esquerda p/ direita
+    except Exception as e:
+        return f"Erro ao puxar dados: {e}"
 
-    if s < 50 and v > 200:
-        return "branco"
-    elif h < 10 or h > 160:
-        return "vermelho"
-    elif 10 < h < 50:
-        return "preto"
-    else:
-        return "indefinido"
+# Função de análise estratégica simples (teste)
+def analisar_padrao(cores):
+    ult_brancos = [i for i, c in enumerate(cores) if c == "branco"]
+    branco_detectado = len(ult_brancos) > 0
 
-# --- Função principal para processar imagem e extrair sequência ---
-def processar_imagem(imagem):
-    img = np.array(imagem)
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    prob_sair_branco = "BAIXA"
+    if cores[-1] == "branco":
+        prob_sair_branco = "MÉDIA"
+        if cores[-2] == "branco":
+            prob_sair_branco = "ALTA"
 
-    altura, largura, _ = img.shape
-    bolinhas = []
-    num_linhas = 7
-    num_colunas = 10
-    margem_sup = 90
-    margem_esq = 90
-    passo_x = (largura - 2 * margem_esq) // num_colunas
-    passo_y = (altura - 2 * margem_sup) // num_linhas
-    raio = 20
+    return {
+        "mercado_bom": branco_detectado,
+        "risco_los": "MÉDIO" if branco_detectado else "ALTO",
+        "probabilidade_branco": prob_sair_branco
+    }
 
-    for linha in range(num_linhas):
-        for coluna in range(num_colunas):
-            x = margem_esq + coluna * passo_x
-            y = margem_sup + linha * passo_y
-            bolinha = img[y - raio:y + raio, x - raio:x + raio]
-            if bolinha.shape[0] == 0 or bolinha.shape[1] == 0:
-                continue
-            cor = detectar_cor(bolinha)
-            bolinhas.append(cor)
+# Geração da próxima sequência de cores (teste inicial)
+def gerar_estrategia():
+    cores = get_latest_colors()
+    if isinstance(cores, str):
+        return cores, None
 
-    return bolinhas
+    analise = analisar_padrao(cores)
+    agora = datetime.now()
+    entradas = []
 
-# --- Função de previsão com base na sequência ---
-def prever_proximas_cores(sequencia, minutos=10):
-    ultimos = sequencia[-20:]
-    contagem = {"vermelho": 0, "preto": 0, "branco": 0}
-    for cor in ultimos:
-        if cor in contagem:
-            contagem[cor] += 1
+    for i in range(20):
+        horario = (agora + timedelta(minutes=i)).strftime("%H:%M")
+        if analise["probabilidade_branco"] == "ALTA":
+            cor = "branco"
+        elif cores[-1] == "preto":
+            cor = "vermelho"
+        else:
+            cor = "preto"
+        observacao = "Estratégia com base nos últimos padrões"
+        entradas.append((horario, cor, observacao))
 
-    total = sum(contagem.values())
-    if total == 0:
-        return "Não foi possível prever"
+    return analise, entradas
 
-    probabilidades = {cor: round((qtd / total) * 100, 2) for cor, qtd in contagem.items()}
-    sugestao = max(probabilidades, key=probabilidades.get)
+# Streamlit UI
+st.set_page_config(page_title="Blaze Padrões com IA", layout="wide")
+st.title("Análise Automática - Blaze Double")
 
-    return sugestao, probabilidades
+placeholder = st.empty()
 
-# --- Upload da imagem ---
-arquivo = st.file_uploader("Envie o print do histórico da Blaze", type=["png", "jpg", "jpeg"])
+while True:
+    with placeholder.container():
+        analise, entradas = gerar_estrategia()
 
-if arquivo:
-    imagem = Image.open(arquivo)
-    st.image(imagem, caption="Imagem recebida", use_column_width=True)
+        if isinstance(analise, str):
+            st.error(analise)
+        else:
+            st.subheader("Diagnóstico do Mercado Atual")
+            st.write(f"**Mercado Bom para Operar?** {'Sim' if analise['mercado_bom'] else 'Não'}")
+            st.write(f"**Risco de LOS?** {analise['risco_los']}")
+            st.write(f"**Probabilidade de Branco?** {analise['probabilidade_branco']}")
 
-    with st.spinner("Analisando imagem..."):
-        resultado = processar_imagem(imagem)
-        st.success("Imagem processada com sucesso!")
-        st.markdown("### Últimas cores detectadas:")
-        st.code(", ".join(resultado[-30:]))
+            st.subheader("Entradas Estratégicas para os Próximos 20 Minutos")
+            for h, cor, obs in entradas:
+                st.write(f"**{h}** → **{cor.upper()}** | {obs}")
 
-        sugestao, probabilidades = prever_proximas_cores(resultado)
-
-        st.markdown("### Previsão para os próximos 10 minutos:")
-        st.write(f"**Sugestão mais provável:** `{sugestao.upper()}`")
-        st.write("**Probabilidades:**")
-        st.json(probabilidades)
+    time.sleep(60)  # Atualiza a cada minuto
