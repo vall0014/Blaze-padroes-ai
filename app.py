@@ -2,12 +2,10 @@ import streamlit as st
 from datetime import datetime, timedelta
 import random
 
-# Simula os padrões das últimas jogadas
 def obter_ultimos_padroes():
     cores = ["vermelho", "preto", "branco"]
     return [random.choice(cores) for _ in range(30)]
 
-# Análise estratégica
 def analisar_padrao(cores):
     if len(cores) < 1:
         return {
@@ -31,7 +29,6 @@ def analisar_padrao(cores):
         "probabilidade_branco": prob_sair_branco
     }
 
-# Gera as entradas para os próximos minutos
 def gerar_entradas():
     agora = datetime.now()
     entradas = []
@@ -41,7 +38,6 @@ def gerar_entradas():
         entradas.append((minuto.strftime("%H:%M"), cor))
     return entradas
 
-# Função principal da aplicação
 def main():
     st.set_page_config(page_title="Blaze Estratégias", layout="centered")
     st.title("Entradas Estratégicas para os Próximos 20 Minutos")
@@ -59,12 +55,10 @@ def main():
     st.markdown(f"**Risco de LOS:** `{analise['risco_los']}`")
     st.markdown(f"**Probabilidade de Branco:** `{analise['probabilidade_branco']}`")
 
-    # Botão para atualizar manualmente
+    # Botão manual para atualizar
     if st.button("🔄 Atualizar Entradas"):
-        entradas = gerar_entradas()
-        st.session_state.entradas = entradas
+        st.session_state.entradas = gerar_entradas()
 
-    # Garante que as entradas existem mesmo sem clicar no botão
     if "entradas" not in st.session_state:
         st.session_state.entradas = gerar_entradas()
 
