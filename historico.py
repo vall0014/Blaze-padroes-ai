@@ -1,24 +1,44 @@
-def analisar_padroes(historico_str):
-    cores = [cor.strip().lower() for cor in historico_str.split(",") if cor.strip()]
-    
-    if len(cores) < 5:
-        return "Poucos dados para análise. Cole pelo menos 5 entradas."
+from flask import Flask, request, render_template_string
+from historico import analisar_padroes
 
-    analise = ""
-    vermelho = cores.count("vermelho")
-    preto = cores.count("preto")
-    branco = cores.count("branco")
+app = Flask(__name__)
 
-    analise += f"Total de entradas: {len(cores)}\n"
-    analise += f"Vermelhos: {vermelho} | Pretos: {preto} | Brancos: {branco}\n\n"
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Analisador de Cores</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #111; color: white; }
+        textarea { width: 100%; height: 100px; margin-top: 10px; }
+        .resultado { margin-top: 20px; white-space: pre-wrap; background-color: #222; padding: 15px; border-radius: 8px; }
+        .botao { margin-top: 10px; padding: 10px 20px; background-color: #444; color: white; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Analisador de Padrões de Cores</h1>
+    <form method="post">
+        <label for="historico">Cole o histórico de cores (ex: vermelho, preto, branco...):</label>
+        <textarea name="historico" required>{{ historico }}</textarea><br>
+        <button class="botao" type="submit">Analisar</button>
+    </form>
+    {% if resultado %}
+        <div class="resultado">{{ resultado }}</div>
+    {% endif %}
+</body>
+</html>
+"""
 
-    if cores[-1] == "branco":
-        analise += "Última cor foi BRANCO. Atenção: tendência de branco seguido pode ocorrer.\n"
-    
-    if len(cores) >= 2 and cores[-1] == cores[-2]:
-        analise += "Últimas duas cores repetidas. Chance de repetição tripla aumentada.\n"
+@app.route("/", methods=["GET", "POST"])
+def index():
+    resultado = ""
+    historico = ""
 
-    if len(cores) >= 3 and cores[-1] != cores[-2] and cores[-2] != cores[-3]:
-        analise += "Padrão alternado detectado. Próxima cor pode repetir uma das últimas.\n"
+    if request.method == "POST":
+        historico = request.form["historico"]
+        resultado = analisar_padroes(historico)
 
-    return analise
+    return render_template_string(HTML_TEMPLATE, resultado=resultado, historico=historico)
+
+if __name__ == "__main__":
+    app.run(debug=True)
