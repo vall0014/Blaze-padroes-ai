@@ -1,29 +1,44 @@
-import streamlit as st
-import random
+from flask import Flask, request, render_template_string
+from historico import analisar_padroes
 
-# Função para simular os últimos resultados
-def obter_ultimos_padroes():
-    cores = ["vermelho", "preto", "branco"]
-    return [random.choice(cores) for _ in range(30)]
+app = Flask(__name__)
 
-# Função principal
-def main():
-    st.set_page_config(page_title="Teste de Cores Blaze", layout="centered")
-    st.title("Últimos Resultados (Simulação)")
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Analisador de Cores</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #111; color: white; }
+        textarea { width: 100%; height: 100px; margin-top: 10px; }
+        .resultado { margin-top: 20px; white-space: pre-wrap; background-color: #222; padding: 15px; border-radius: 8px; }
+        .botao { margin-top: 10px; padding: 10px 20px; background-color: #444; color: white; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Analisador de Padrões de Cores</h1>
+    <form method="post">
+        <label for="historico">Cole o histórico de cores (ex: vermelho, preto, branco...):</label>
+        <textarea name="historico" required>{{ historico }}</textarea><br>
+        <button class="botao" type="submit">Analisar</button>
+    </form>
+    {% if resultado %}
+        <div class="resultado">{{ resultado }}</div>
+    {% endif %}
+</body>
+</html>
+"""
 
-    cores = obter_ultimos_padroes()
+@app.route("/", methods=["GET", "POST"])
+def index():
+    resultado = ""
+    historico = ""
 
-    st.subheader("Últimos 30 resultados:")
-    st.write(cores)
+    if request.method == "POST":
+        historico = request.form["historico"]
+        resultado = analisar_padroes(historico)
 
-    st.subheader("Contagem de Cores:")
-    vermelho_count = cores.count("vermelho")
-    preto_count = cores.count("preto")
-    branco_count = cores.count("branco")
-
-    st.markdown(f"**Vermelho:** {vermelho_count}")
-    st.markdown(f"**Preto:** {preto_count}")
-    st.markdown(f"**Branco:** {branco_count}")
+    return render_template_string(HTML_TEMPLATE, resultado=resultado, historico=historico)
 
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)
