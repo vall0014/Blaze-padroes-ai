@@ -43,6 +43,12 @@ def main():
     st.title("Entradas Estratégicas para os Próximos 20 Minutos")
 
     cores = obter_ultimos_padroes()
+    
+    # Proteção extra para evitar erro de índice
+    if len(cores) < 2:
+        st.error("Erro: lista de cores não tem dados suficientes para análise.")
+        return
+
     analise = analisar_padrao(cores)
 
     # Alerta de risco
