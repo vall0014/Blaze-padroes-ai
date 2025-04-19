@@ -1,8 +1,8 @@
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
-import time
 from datetime import datetime, timedelta
+import pytz
 
 # Função para puxar o histórico do TipMiner
 def get_latest_colors():
@@ -27,7 +27,7 @@ def get_latest_colors():
     except Exception as e:
         return f"Erro ao puxar dados: {e}"
 
-# Função de análise estratégica (corrigida e melhorada)
+# Função de análise estratégica
 def analisar_padrao(cores):
     if len(cores) < 1:
         return {
@@ -53,12 +53,14 @@ def analisar_padrao(cores):
 
 # Geração da próxima sequência de cores
 def gerar_estrategia():
+    fuso_brasilia = pytz.timezone("America/Sao_Paulo")
+    agora = datetime.now(fuso_brasilia)
+
     cores = get_latest_colors()
     if isinstance(cores, str):
         return cores, None
 
     analise = analisar_padrao(cores)
-    agora = datetime.now()
     entradas = []
 
     for i in range(20):
@@ -78,39 +80,37 @@ def gerar_estrategia():
 st.set_page_config(page_title="Blaze Padrões com IA", layout="wide")
 st.title("Análise Automática - Blaze Double")
 
-placeholder = st.empty()
+# Botão para atualizar as entradas
+if st.button("Atualizar Estratégias Agora"):
+    analise, entradas = gerar_estrategia()
 
-while True:
-    with placeholder.container():
-        analise, entradas = gerar_estrategia()
+    if isinstance(analise, str):
+        st.error(analise)
+    else:
+        st.subheader("Diagnóstico do Mercado Atual")
 
-        if isinstance(analise, str):
-            st.error(analise)
+        # ALERTA de risco
+        if analise["risco_los"] == "ALTO":
+            st.warning("ATENÇÃO: Mercado com ALTO risco de LOS!")
+        elif analise["risco_los"] == "MÉDIO":
+            st.info("Mercado com risco MÉDIO, cuidado nas entradas.")
         else:
-            st.subheader("Diagnóstico do Mercado Atual")
+            st.success("Mercado com baixo risco, bom momento para operar!")
 
-            # ALERTA de risco
-            if analise["risco_los"] == "ALTO":
-                st.warning("ATENÇÃO: Mercado com ALTO risco de LOS!")
-            elif analise["risco_los"] == "MÉDIO":
-                st.info("Mercado com risco MÉDIO, cuidado nas entradas.")
-            else:
-                st.success("Mercado com baixo risco, bom momento para operar!")
+        # ALERTA de branco
+        if analise["probabilidade_branco"] == "ALTA":
+            st.warning("ALERTA: Alta chance de BRANCO nas próximas jogadas!")
+        elif analise["probabilidade_branco"] == "MÉDIA":
+            st.info("Chance MÉDIA de branco. Fique atento.")
 
-            # ALERTA de branco
-            if analise["probabilidade_branco"] == "ALTA":
-                st.warning("ALERTA: Alta chance de BRANCO nas próximas jogadas!")
-            elif analise["probabilidade_branco"] == "MÉDIA":
-                st.info("Chance MÉDIA de branco. Fique atento.")
+        st.markdown(f"""
+        - **Mercado Bom para Operar?** {'✅ SIM' if analise['mercado_bom'] else '❌ NÃO'}
+        - **Risco de LOS:** `{analise['risco_los']}`
+        - **Probabilidade de Branco:** `{analise['probabilidade_branco']}`
+        """)
 
-            st.markdown(f"""
-            - **Mercado Bom para Operar?** {'✅ SIM' if analise['mercado_bom'] else '❌ NÃO'}
-            - **Risco de LOS:** `{analise['risco_los']}`
-            - **Probabilidade de Branco:** `{analise['probabilidade_branco']}`
-            """)
-
-            st.subheader("Entradas Estratégicas para os Próximos 20 Minutos")
-            for h, cor, obs in entradas:
-                st.write(f"**{h}** → **{cor.upper()}** | {obs}")
-
-    time.sleep(60)  # Atualiza a cada minuto
+        st.subheader("Entradas Estratégicas para os Próximos 20 Minutos")
+        for h, cor, obs in entradas:
+            st.write(f"**{h}** → **{cor.upper()}** | {obs}")
+else:
+    st.info("Clique no botão acima para gerar as estratégias atualizadas.")
