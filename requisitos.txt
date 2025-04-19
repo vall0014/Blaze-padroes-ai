@@ -1,5 +1,1 @@
-streamlit
-opencv-python
-numpy
-pandas
-Pillow
+bs4
