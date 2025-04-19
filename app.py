@@ -27,13 +27,20 @@ def get_latest_colors():
     except Exception as e:
         return f"Erro ao puxar dados: {e}"
 
-# Função de análise estratégica simples (teste)
+# Função de análise estratégica (corrigida e melhorada)
 def analisar_padrao(cores):
+    if len(cores) < 1:
+        return {
+            "mercado_bom": False,
+            "risco_los": "ALTO",
+            "probabilidade_branco": "DESCONHECIDA"
+        }
+
     ult_brancos = [i for i, c in enumerate(cores) if c == "branco"]
     branco_detectado = len(ult_brancos) > 0
 
     prob_sair_branco = "BAIXA"
-    if cores[-1] == "branco":
+    if len(cores) >= 2 and cores[-1] == "branco":
         prob_sair_branco = "MÉDIA"
         if cores[-2] == "branco":
             prob_sair_branco = "ALTA"
@@ -44,7 +51,7 @@ def analisar_padrao(cores):
         "probabilidade_branco": prob_sair_branco
     }
 
-# Geração da próxima sequência de cores (teste inicial)
+# Geração da próxima sequência de cores
 def gerar_estrategia():
     cores = get_latest_colors()
     if isinstance(cores, str):
@@ -58,7 +65,7 @@ def gerar_estrategia():
         horario = (agora + timedelta(minutes=i)).strftime("%H:%M")
         if analise["probabilidade_branco"] == "ALTA":
             cor = "branco"
-        elif cores[-1] == "preto":
+        elif len(cores) > 0 and cores[-1] == "preto":
             cor = "vermelho"
         else:
             cor = "preto"
@@ -81,9 +88,26 @@ while True:
             st.error(analise)
         else:
             st.subheader("Diagnóstico do Mercado Atual")
-            st.write(f"**Mercado Bom para Operar?** {'Sim' if analise['mercado_bom'] else 'Não'}")
-            st.write(f"**Risco de LOS?** {analise['risco_los']}")
-            st.write(f"**Probabilidade de Branco?** {analise['probabilidade_branco']}")
+
+            # ALERTA de risco
+            if analise["risco_los"] == "ALTO":
+                st.warning("ATENÇÃO: Mercado com ALTO risco de LOS!")
+            elif analise["risco_los"] == "MÉDIO":
+                st.info("Mercado com risco MÉDIO, cuidado nas entradas.")
+            else:
+                st.success("Mercado com baixo risco, bom momento para operar!")
+
+            # ALERTA de branco
+            if analise["probabilidade_branco"] == "ALTA":
+                st.warning("ALERTA: Alta chance de BRANCO nas próximas jogadas!")
+            elif analise["probabilidade_branco"] == "MÉDIA":
+                st.info("Chance MÉDIA de branco. Fique atento.")
+
+            st.markdown(f"""
+            - **Mercado Bom para Operar?** {'✅ SIM' if analise['mercado_bom'] else '❌ NÃO'}
+            - **Risco de LOS:** `{analise['risco_los']}`
+            - **Probabilidade de Branco:** `{analise['probabilidade_branco']}`
+            """)
 
             st.subheader("Entradas Estratégicas para os Próximos 20 Minutos")
             for h, cor, obs in entradas:
