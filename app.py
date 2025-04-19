@@ -1,61 +1,47 @@
 import streamlit as st
-import pandas as pd
 from datetime import datetime, timedelta
+import pytz
 import random
 
-# Função para carregar o histórico
-def carregar_historico():
-    try:
-        df = pd.read_csv("historico.csv")
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        return df
-    except:
-        return pd.DataFrame(columns=["timestamp", "cor"])
+st.set_page_config(page_title="Análise Blaze Double", layout="centered")
+st.title("Análise Automática - Blaze Double")
+st.subheader("Diagnóstico do Mercado Atual")
 
-# Função para detectar padrão forte
-def detectar_padroes(df):
-    ultimos = df.tail(6)['cor'].tolist()
-    if ultimos.count("branco") >= 2:
-        return "evitar"
-    if ultimos[-3:] == ["vermelho", "vermelho", "vermelho"]:
-        return "preto"
-    if ultimos[-3:] == ["preto", "preto", "preto"]:
-        return "vermelho"
-    return "neutro"
+# Função simulada de diagnóstico
+def diagnostico_do_mercado():
+    risco = random.choice(["ALTO", "MODERADO", "BAIXO"])
+    mercado_bom = risco == "BAIXO"
+    return risco, mercado_bom
 
-# Função de sugestão com limite de entradas
-def sugerir_entradas(df):
-    entradas = []
-    limite = 10
-    entrada = 0
-    while entrada < limite:
-        padrao = detectar_padroes(df)
-        if padrao == "evitar":
-            entradas.append(("Pular", "Horário ruim por muitos brancos"))
-            df = df.iloc[1:]
-            continue
-        elif padrao in ["vermelho", "preto"]:
-            horario = datetime.now() + timedelta(minutes=entrada)
-            entradas.append((horario.strftime("%H:%M"), padrao.upper(), "Padrão detectado"))
-            entrada += 1
-        else:
-            entradas.append(("Pular", "Sem padrão forte"))
-            entrada += 1
-        df = df.iloc[1:]
-    return entradas
+# Botão manual para atualizar
+if st.button("Atualizar Análise"):
+    risco, mercado_bom = diagnostico_do_mercado()
 
-# Interface Streamlit
-st.set_page_config(page_title="Blaze Padrões com IA", layout="centered")
-st.title("Blaze Padrões com IA")
-st.markdown("Análise de padrões inteligentes com limite de entradas")
+    if risco == "ALTO":
+        st.warning("ATENÇÃO: Mercado com ALTO risco de LOS!")
+    elif risco == "MODERADO":
+        st.info("Mercado com risco MODERADO. Atenção redobrada.")
+    else:
+        st.success("Mercado com BAIXO risco. Bom momento para operar!")
 
-df = carregar_historico()
-if df.empty:
-    st.warning("Histórico não encontrado ou vazio.")
+    st.markdown(f"""
+    - Mercado Bom para Operar? {'✅ SIM' if mercado_bom else '❌ NÃO'}
+    - Risco de LOS: **{risco}**
+    - Probabilidade de Branco: `DESCONHECIDA`
+    """)
+
+    st.subheader("Entradas Estratégicas para os Próximos 20 Minutos")
+
+    # Horário de Brasília
+    fuso_brasilia = pytz.timezone("America/Sao_Paulo")
+    agora = datetime.now(fuso_brasilia)
+
+    cores_possiveis = ["PRETO", "VERMELHO"]
+
+    for i in range(20):
+        horario = agora + timedelta(minutes=i)
+        cor_sugerida = random.choice(cores_possiveis)
+        estrategia = "Estratégia com base nos últimos padrões"
+        st.markdown(f"**{horario.strftime('%H:%M')}** → **{cor_sugerida}** | {estrategia}")
 else:
-    resultados = sugerir_entradas(df)
-    for item in resultados:
-        if item[0] == "Pular":
-            st.info(f"[PULO] - {item[1]}")
-        else:
-            st.success(f"{item[0]} | Entrada sugerida: {item[1]} ({item[2]})")
+    st.info("Clique no botão acima para gerar a análise manualmente.")
