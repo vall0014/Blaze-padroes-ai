@@ -1,44 +1,30 @@
-from flask import Flask, request, render_template_string
-from historico import analisar_padroes
+import datetime
+import os
+import openai
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import historico
 
 app = Flask(__name__)
+CORS(app)
 
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Analisador de Cores</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background-color: #111; color: white; }
-        textarea { width: 100%; height: 100px; margin-top: 10px; }
-        .resultado { margin-top: 20px; white-space: pre-wrap; background-color: #222; padding: 15px; border-radius: 8px; }
-        .botao { margin-top: 10px; padding: 10px 20px; background-color: #444; color: white; border: none; cursor: pointer; }
-    </style>
-</head>
-<body>
-    <h1>Analisador de Padrões de Cores</h1>
-    <form method="post">
-        <label for="historico">Cole o histórico de cores (ex: vermelho, preto, branco...):</label>
-        <textarea name="historico" required>{{ historico }}</textarea><br>
-        <button class="botao" type="submit">Analisar</button>
-    </form>
-    {% if resultado %}
-        <div class="resultado">{{ resultado }}</div>
-    {% endif %}
-</body>
-</html>
-"""
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-@app.route("/", methods=["GET", "POST"])
-def index():
-    resultado = ""
-    historico = ""
+@app.route("/perguntar", methods=["POST"])
+def perguntar():
+    data = request.get_json()
+    pergunta = data.get("pergunta")
 
-    if request.method == "POST":
-        historico = request.form["historico"]
-        resultado = analisar_padroes(historico)
+    if not pergunta:
+        return jsonify({"erro": "Pergunta não fornecida"}), 400
 
-    return render_template_string(HTML_TEMPLATE, resultado=resultado, historico=historico)
+    resposta = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": pergunta}],
+    )
 
-if __name__ == "__main__":
-    app.run(debug=True)
+    mensagem = resposta.choices[0].message["content"]
+
+    historico.salvar(pergunta, mensagem)
+
+    return jsonify({"resposta": mensagem})
