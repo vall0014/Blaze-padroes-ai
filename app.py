@@ -4,6 +4,9 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import pytz
 
+# Fuso horário de Brasília
+tz_brasilia = pytz.timezone("America/Sao_Paulo")
+
 # Função para puxar o histórico do TipMiner
 def get_latest_colors():
     url = "https://www.tipminer.com/br/historico/blaze/double"
@@ -15,7 +18,7 @@ def get_latest_colors():
         result_divs = soup.select('.col-6.col-sm-3.col-md-2.col-xl.result-item .result-icon')
 
         cores = []
-        for item in result_divs[:20]:  # Pegamos só os últimos 20 resultados
+        for item in result_divs[:20]:
             if "white" in item["class"]:
                 cores.append("branco")
             elif "red" in item["class"]:
@@ -23,11 +26,11 @@ def get_latest_colors():
             elif "black" in item["class"]:
                 cores.append("preto")
 
-        return cores[::-1]  # Inverter: da esquerda p/ direita
+        return cores[::-1]
     except Exception as e:
         return f"Erro ao puxar dados: {e}"
 
-# Função de análise estratégica
+# Análise estratégica
 def analisar_padrao(cores):
     if len(cores) < 1:
         return {
@@ -51,50 +54,46 @@ def analisar_padrao(cores):
         "probabilidade_branco": prob_sair_branco
     }
 
-# Estratégia baseada na análise
-def gerar_estrategia(cores, analise):
-    fuso_brasilia = pytz.timezone("America/Sao_Paulo")
-    agora = datetime.now(fuso_brasilia)
+# Geração da estratégia
+def gerar_estrategia():
+    cores = get_latest_colors()
+    if isinstance(cores, str):
+        return cores, None
+
+    analise = analisar_padrao(cores)
+    agora = datetime.now(tz_brasilia)
     entradas = []
 
     for i in range(20):
         horario = (agora + timedelta(minutes=i)).strftime("%H:%M")
-
         if analise["probabilidade_branco"] == "ALTA":
             cor = "branco"
-        elif len(cores) >= 2 and cores[-1] == "preto" and cores[-2] == "preto":
-            cor = "vermelho"
-        elif len(cores) >= 2 and cores[-1] == "vermelho" and cores[-2] == "vermelho":
-            cor = "preto"
+        elif len(cores) >= 2:
+            if cores[-1] == "preto" and cores[-2] == "vermelho":
+                cor = "branco"
+            elif cores[-1] == "vermelho":
+                cor = "preto"
+            else:
+                cor = "vermelho"
         else:
-            cor = "preto"  # fallback padrão
-
+            cor = "preto"
         observacao = "Estratégia com base nos últimos padrões"
         entradas.append((horario, cor, observacao))
 
-    return entradas
+    return analise, entradas
 
-# Streamlit UI
+# STREAMLIT INTERFACE
 st.set_page_config(page_title="Blaze Padrões com IA", layout="wide")
 st.title("Análise Automática - Blaze Double")
 
-# Botão de atualização
-if st.button("Atualizar Estratégias Agora"):
-    st.session_state["atualizar"] = True
+if st.button("Atualizar Entradas"):
+    analise, entradas = gerar_estrategia()
 
-# Se botão foi clicado, executa a lógica
-if st.session_state.get("atualizar", False):
-    cores = get_latest_colors()
-
-    if isinstance(cores, str):
-        st.error(cores)
+    if isinstance(analise, str):
+        st.error(analise)
     else:
-        analise = analisar_padrao(cores)
-        entradas = gerar_estrategia(cores, analise)
-
         st.subheader("Diagnóstico do Mercado Atual")
 
-        # ALERTA de risco
         if analise["risco_los"] == "ALTO":
             st.warning("ATENÇÃO: Mercado com ALTO risco de LOS!")
         elif analise["risco_los"] == "MÉDIO":
@@ -102,7 +101,6 @@ if st.session_state.get("atualizar", False):
         else:
             st.success("Mercado com baixo risco, bom momento para operar!")
 
-        # ALERTA de branco
         if analise["probabilidade_branco"] == "ALTA":
             st.warning("ALERTA: Alta chance de BRANCO nas próximas jogadas!")
         elif analise["probabilidade_branco"] == "MÉDIA":
@@ -118,4 +116,4 @@ if st.session_state.get("atualizar", False):
         for h, cor, obs in entradas:
             st.write(f"**{h}** → **{cor.upper()}** | {obs}")
 else:
-    st.info("Clique no botão acima para gerar as estratégias atualizadas.")
+    st.info("Clique no botão acima para gerar as novas entradas.")
